@@ -1,0 +1,54 @@
+before_script:
+  - export CURRENT_TIME=$(date '+%Y-%m-%dT%H')
+
+## 打包
+build_maven_package_for_release:
+  stage: build
+  variables:
+    GIT_CHECKOUT: "true"
+  tags:
+    - kube-installer
+  script:
+    - mvn clean -Dmaven.test.skip=true package
+  artifacts:
+    paths:
+      - ./*/target/*.jar
+    expire_in: 12 hour
+  only:
+    - release
+  resource_group: release_pipeline
+
+## 构建Docker镜像
+build_image_for_release:
+  stage: build-image
+  tags:
+    - kube-installer
+  dependencies:
+    - build_maven_package_for_release
+  services:
+    - docker:dind
+  script:
+    - echo "docker image tag is:"
+    - echo $CURRENT_TIME
+    - sudo docker build -t 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:$CURRENT_TIME .
+    - sudo docker push 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:$CURRENT_TIME
+  only:
+    - release
+  resource_group: release_pipeline
+
+## 部署到K8S
+deploy_ops_system_for_release:
+  stage: deploy
+  tags:
+    - kube-installer
+  dependencies:
+    - build_image_for_release
+  needs:
+    - build_image_for_release
+  services:
+    - docker:dind
+  script:
+    - kubectl patch deployment $DOCKER_APP_NAME -n recircle-industry-platform-release -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"$DOCKER_APP_NAME\",\"image\":\"192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:${CURRENT_TIME}\"}]}}}}"
+  only:
+    - release
+  resource_group: release_pipeline

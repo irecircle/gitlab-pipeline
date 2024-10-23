@@ -37,7 +37,7 @@ build_image_for_release:
   resource_group: release_pipeline
 
 ## 部署到K8S
-deploy_ops_system_for_release:
+deploy_to_k8s_for_release:
   stage: deploy
   tags:
     - kube-installer
@@ -48,7 +48,7 @@ deploy_ops_system_for_release:
   services:
     - docker:dind
   script:
-    - kubectl patch deployment $DOCKER_APP_NAME -n recircle-industry-platform-release -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"$DOCKER_APP_NAME\",\"image\":\"192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:${CURRENT_TIME}\"}]}}}}"
+    - kubectl patch deployment $DOCKER_APP_NAME -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"$DOCKER_APP_NAME\",\"image\":\"192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:${CURRENT_TIME}\"}]}}}}"
   only:
     - release
   resource_group: release_pipeline

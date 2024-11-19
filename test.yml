@@ -43,7 +43,7 @@ deploy_app_for_test:
   services:
     - docker:dind
   script:
-    - kubectl patch deployment $DOCKER_APP_NAME --kubeconfig=~/.kube/zxl-k8s-config -n recircle-industry-platform-test -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
+    - kubectl patch deployment $DOCKER_APP_NAME --kubeconfig=/root/.kube/zxl-k8s-config -n recircle-industry-platform-test -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
   only:
     - test
   resource_group: test_pipeline

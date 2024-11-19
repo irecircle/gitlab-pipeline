@@ -23,6 +23,8 @@ build_image_for_dev:
   when: manual
   dependencies:
     - build_maven_package_for_dev
+  needs:
+    - build_maven_package_for_dev
   services:
     - docker:dind
   script:

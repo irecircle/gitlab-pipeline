@@ -32,7 +32,7 @@ build_image_for_test:
   resource_group: test_pipeline
 
 ## 部署到K8S
-deploy_ops_system_for_test:
+deploy_app_for_test:
   stage: deploy
   tags:
     - kube-installer

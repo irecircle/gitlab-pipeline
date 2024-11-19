@@ -25,8 +25,8 @@ build_image_for_test:
   services:
     - docker:dind
   script:
-    - sudo docker build -t 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:test .
-    - sudo docker push 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:test
+    - sudo docker build -t 192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:test .
+    - sudo docker push 192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:test
   only:
     - test
   resource_group: test_pipeline

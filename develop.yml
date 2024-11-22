@@ -3,8 +3,6 @@ build_maven_package_for_dev:
   stage: build
   variables:
     GIT_CHECKOUT: "true"
-  tags:
-    - kube-installer
   script:
     - mvn clean -Dmaven.test.skip=true package
   artifacts:
@@ -18,8 +16,6 @@ build_maven_package_for_dev:
 ## 构建Docker镜像
 build_image_for_dev:
   stage: build-image
-  tags:
-    - kube-installer
   when: manual
   dependencies:
     - build_maven_package_for_dev
@@ -37,8 +33,6 @@ build_image_for_dev:
 ## 部署到K8S
 deploy_app_for_dev:
   stage: deploy
-  tags:
-    - kube-installer
   dependencies:
     - build_image_for_dev
   needs:
@@ -54,8 +48,6 @@ deploy_app_for_dev:
 ## 将应用的API发布到Maven私服
 deploy_api_for_dev:
   stage: deploy_api
-  tags:
-    - kube-installer
   dependencies:
     - build_maven_package_for_dev
   needs:

@@ -4,7 +4,7 @@ build_maven_package_for_test:
   variables:
     GIT_CHECKOUT: "true"
   tags:
-    - kube-installer
+    - java-test-env-builder
   script:
     - mvn clean -Dmaven.test.skip=true package
   artifacts:
@@ -19,7 +19,7 @@ build_maven_package_for_test:
 build_image_for_test:
   stage: build-image
   tags:
-    - kube-installer
+    - java-test-env-builder
   dependencies:
     - build_maven_package_for_test
   services:
@@ -35,7 +35,7 @@ build_image_for_test:
 deploy_app_for_test:
   stage: deploy
   tags:
-    - kube-installer
+    - java-test-env-builder
   dependencies:
     - build_image_for_test
   needs:
@@ -52,7 +52,7 @@ deploy_app_for_test:
 deploy_api_for_test:
   stage: deploy_api
   tags:
-    - kube-installer
+    - java-test-env-builder
   dependencies:
     - build_maven_package_for_test
   needs:

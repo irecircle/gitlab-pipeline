@@ -26,8 +26,8 @@ build_image_for_dev:
   services:
     - docker:dind
   script:
-    - sudo docker build -t 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:dev .
-    - sudo docker push 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:dev
+    - sudo docker build -t 192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:dev .
+    - sudo docker push 192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:dev
   tags:
     - java-builder
   only:
@@ -44,7 +44,7 @@ deploy_app_for_dev:
   services:
     - docker:dind
   script:
-    - kubectl patch deployment $DOCKER_APP_NAME -n recircle-industry-platform-dev -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
+    - kubectl patch deployment $DOCKER_APP_NAME --context=dev-admin@cluster.dev -n recircle-industry-platform-dev -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
   tags:
     - java-builder
   only:

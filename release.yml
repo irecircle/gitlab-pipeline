@@ -48,7 +48,7 @@ deploy_to_k8s_for_release:
   services:
     - docker:dind
   script:
-    - kubectl patch deployment $DOCKER_APP_NAME --context=dev-admin@cluster.dev -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"$DOCKER_APP_NAME\",\"image\":\"192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:${CURRENT_TIME}\"}]}}}}"
+    - kubectl patch deployment $DOCKER_APP_NAME --context=pre-admin@cluster.pre -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"$DOCKER_APP_NAME\",\"image\":\"192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:${CURRENT_TIME}\"}]}}}}"
   only:
     - release
   resource_group: release_pipeline

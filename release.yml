@@ -7,7 +7,7 @@ build_maven_package_for_release:
   variables:
     GIT_CHECKOUT: "true"
   tags:
-    - kube-installer
+    - java-test-env-builder
   script:
     - mvn clean -Dmaven.test.skip=true package
   artifacts:
@@ -22,7 +22,7 @@ build_maven_package_for_release:
 build_image_for_release:
   stage: build-image
   tags:
-    - kube-installer
+    - java-test-env-builder
   dependencies:
     - build_maven_package_for_release
   services:
@@ -40,7 +40,7 @@ build_image_for_release:
 deploy_to_k8s_for_release:
   stage: deploy
   tags:
-    - kube-installer
+    - java-test-env-builder
   dependencies:
     - build_image_for_release
   needs:

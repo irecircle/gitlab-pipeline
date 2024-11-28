@@ -25,8 +25,8 @@ build_image_for_test:
   services:
     - docker:dind
   script:
-    - sudo docker build -t 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:test .
-    - sudo docker push 192.168.110.39/recircle-industry-platform/$DOCKER_APP_NAME:test
+    - sudo docker build -t 192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:test .
+    - sudo docker push 192.168.110.53/recircle-industry-platform/$DOCKER_APP_NAME:test
   only:
     - test
   resource_group: test_pipeline
@@ -43,7 +43,7 @@ deploy_app_for_test:
   services:
     - docker:dind
   script:
-    - kubectl patch deployment $DOCKER_APP_NAME -n recircle-industry-platform-test -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
+    - kubectl patch deployment $DOCKER_APP_NAME --context=test-admin@cluster.test -n recircle-industry-platform-test -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
   only:
     - test
   resource_group: test_pipeline

@@ -18,6 +18,8 @@ build_maven_package_for_dev:
 ## 构建Docker镜像
 build_image_for_dev:
   stage: build-image
+  variables:
+    GIT_CHECKOUT: "true"
   when: manual
   dependencies:
     - build_maven_package_for_dev
@@ -54,6 +56,8 @@ deploy_app_for_dev:
 ## 将应用的API发布到Maven私服
 deploy_api_for_dev:
   stage: deploy_api
+  variables:
+    GIT_CHECKOUT: "true"
   dependencies:
     - build_maven_package_for_dev
   needs:

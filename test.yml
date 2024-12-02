@@ -19,6 +19,8 @@ build_maven_package_for_test:
 ## 构建Docker镜像
 build_image_for_test:
   stage: build-image
+  variables:
+    GIT_CHECKOUT: "true"
   tags:
     - host-docker-builder
   dependencies:

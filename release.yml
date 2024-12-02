@@ -22,6 +22,8 @@ build_maven_package_for_release:
 ## 构建Docker镜像
 build_image_for_release:
   stage: build-image
+  variables:
+    GIT_CHECKOUT: "true"
   tags:
     - host-docker-builder
   dependencies:

@@ -13,7 +13,7 @@ build_maven_package_for_release:
     - mvn clean -Dmaven.test.skip=true package
   artifacts:
     paths:
-      - ./*/target/*.jar
+      - ./**/target/*.jar
     expire_in: 12 hour
   only:
     - release

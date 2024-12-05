@@ -54,6 +54,8 @@ deploy_app_for_test:
 ## 将应用的API发布到Maven私服
 deploy_api_for_test:
   stage: deploy_api
+  variables:
+    GIT_CHECKOUT: "true"
   tags:
     - maven-builder
     - test

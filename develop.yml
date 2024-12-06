@@ -67,7 +67,7 @@ deploy_api_for_dev:
       - ./**/target/*.jar
     expire_in: 12 hour
   script:
-    - mvn clean deploy
+    - mvn clean deploy -pl ${DOCKER_APP_NAME}-api -am
   tags:
     - maven-builder
   only:

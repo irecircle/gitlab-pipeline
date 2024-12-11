@@ -1,0 +1,159 @@
+# 定义安装依赖的作业
+install_dependencies_for_release:
+  stage: install
+  tags:
+    - frontend-installer
+  script:
+    - pnpm install 
+  only:
+    - release
+  cache:
+    key: ${CI_PROJECT_NAME}-release
+    paths:
+      - node_modules/
+      - apps/admin/node_modules/
+      - apps/main/node_modules/
+      - apps/micro-template/node_modules/
+      - packages/ui/node_modules/
+      - packages/utils/node_modules/
+
+# 构建项目
+build_admin_project_for_release:
+  stage: build
+  tags:
+    - frontend-admin-builder
+  dependencies:
+    - install_dependencies_for_release
+  needs:
+    - install_dependencies_for_release
+  script:
+    - pnpm run build:admin-stage # 执行构建命令
+  artifacts:
+    paths:
+      - apps/admin/dist/ # 保存构建后的输出
+    expire_in: 1 week # 构建产物保存一周
+  only:
+    - release
+  cache:
+    key: ${CI_PROJECT_NAME}-release
+    paths:
+      - node_modules/
+      - apps/admin/node_modules/
+      - apps/main/node_modules/
+      - apps/micro-template/node_modules/
+      - packages/ui/node_modules/
+      - packages/utils/node_modules/
+
+build_main_project_for_release:
+  stage: build
+  tags:
+    - frontend-installer
+  dependencies:
+    - install_dependencies_for_release
+  needs:
+    - install_dependencies_for_release
+  script:
+    - pnpm run build:main-stage # 执行构建命令
+  artifacts:
+    paths:
+      - apps/main/dist/ # 保存构建后的输出
+    expire_in: 1 week # 构建产物保存一周
+  only:
+    - release
+  cache:
+    key: ${CI_PROJECT_NAME}-release
+    paths:
+      - node_modules/
+      - apps/admin/node_modules/
+      - apps/main/node_modules/
+      - apps/micro-template/node_modules/
+      - packages/ui/node_modules/
+      - packages/utils/node_modules/
+
+# 构建镜像
+build_admin_image_for_release:
+  stage: build_img
+  image: $DOCKER_REGISTRY/recircle-industry-platform/docker
+  tags:
+    - frontend-admin-builder
+  dependencies:
+    - build_admin_project_for_release
+  needs:
+    - build_admin_project_for_release
+  before_script:
+    - echo "$DOCKER_REGISTRY_PASS" | docker login $DOCKER_REGISTRY --username $DOCKER_REGISTRY_USER --password-stdin
+  variables:
+    TZ: "Asia/Shanghai"
+  script:
+    - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
+    - echo "docker image tag is:"
+    - echo $CURRENT_TIME
+    - docker build -f Dockerfile.admin -t $DOCKER_REGISTRY/recircle-industry-platform/admin-front:$CURRENT_TIME .
+    - docker push $DOCKER_REGISTRY/recircle-industry-platform/admin-front:$CURRENT_TIME
+  only:
+    - release
+
+build_main_image_for_release:
+  stage: build_img
+  image: $DOCKER_REGISTRY/recircle-industry-platform/docker
+  tags:
+    - frontend-installer
+  dependencies:
+    - build_main_project_for_release
+  needs:
+    - build_main_project_for_release
+  before_script:
+    - echo "$DOCKER_REGISTRY_PASS" | docker login $DOCKER_REGISTRY --username $DOCKER_REGISTRY_USER --password-stdin
+  variables:
+    TZ: "Asia/Shanghai"
+  script:
+    - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
+    - echo "docker image tag is:"
+    - echo $CURRENT_TIME
+    - docker build -f Dockerfile.main -t $DOCKER_REGISTRY/recircle-industry-platform/main-front:$CURRENT_TIME .
+    - docker push $DOCKER_REGISTRY/recircle-industry-platform/main-front:$CURRENT_TIME
+  only:
+    - release
+
+# 部署上K8S
+deploy_admin_k8s_for_release:
+  stage: deploy
+  image: 
+    name: $DOCKER_REGISTRY/recircle-industry-platform/kubectl:1.28
+    entrypoint: [""]
+  tags:
+    - frontend-admin-builder
+  dependencies:
+    - build_admin_image_for_release
+  needs:
+    - build_admin_image_for_release
+  variables:
+    TZ: "Asia/Shanghai"
+  script:
+    - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
+    - echo "deploy docker image tag is:"
+    - echo $CURRENT_TIME
+    - kubectl patch deployment admin-front-v1 --context=pre-admin@cluster.pre -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"admin-front\",\"image\":\"harbor.irecircle.com/recircle-industry-platform/admin-front:${CURRENT_TIME}\"}]}}}}"
+  only:
+    - release
+
+deploy_main_k8s_for_release:
+  stage: deploy
+  image: 
+    name: $DOCKER_REGISTRY/recircle-industry-platform/kubectl:1.28
+    entrypoint: [""]
+  tags:
+    - frontend-installer
+  dependencies:
+    - build_main_image_for_release
+  needs:
+    - build_main_image_for_release
+  variables:
+    TZ: "Asia/Shanghai"
+  script:
+    - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
+    - echo "deploy docker image tag is:"
+    - echo $CURRENT_TIME
+    - kubectl patch deployment main-front-v1 --context=pre-admin@cluster.pre -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"main-front\",\"image\":\"harbor.irecircle.com/recircle-industry-platform/main-front:${CURRENT_TIME}\"}]}}}}"
+  only:
+    - release

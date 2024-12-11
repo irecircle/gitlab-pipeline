@@ -1,0 +1,188 @@
+###################### 为应用模块安装依赖
+.install-dependency-for-module: &install-dependency-for-module
+  stage: install
+  tags:
+    - pnpm-in-docker
+  script:
+    - echo ">>>>>>>>>>>>>>>>>>>>开始安装${APP_MODULE}应用模块依赖<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - pnpm install --dir=apps/${APP_MODULE}
+  only:
+    - develop
+  cache:
+    key: ${CI_PROJECT_NAME}-${APP_MODULE}-module
+    paths:
+      - apps/${APP_MODULE}/node_modules/
+      - node_modules/
+      - apps/micro-template/node_modules/
+      - packages/ui/node_modules/
+      - packages/utils/node_modules/
+
+install_dependencies_for_admin:
+  <<: *install-dependency-for-module
+  variables:
+    APP_MODULE: admin
+install_dependencies_for_main:
+  <<: *install-dependency-for-module
+  variables:
+    APP_MODULE: main
+install_dependencies_for_scm:
+  <<: *install-dependency-for-module
+  variables:
+    APP_MODULE: scm
+install_dependencies_for_wms:
+  <<: *install-dependency-for-module
+  variables:
+    APP_MODULE: wms
+
+################# 构建应用模块
+.build_app_module: &build_app_module
+  stage: build
+  tags:
+    - pnpm-in-docker
+  when: manual
+  script:
+    - echo ">>>>>>>>>>>>>>>>>>>>开始构建应用${APP_MODULE}<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - pnpm run build:$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-dev # 执行构建命令
+  artifacts:
+    paths:
+      - apps/${APP_MODULE}/dist/ # 保存构建后的输出
+    expire_in: 1 week # 构建产物保存一周
+  only:
+    - develop
+  cache:
+    - key: ${CI_PROJECT_NAME}-${APP_MODULE}-module
+      paths:
+        - apps/${APP_MODULE}/node_modules/
+        - node_modules/
+        - apps/micro-template/node_modules/
+        - packages/ui/node_modules/
+        - packages/utils/node_modules/
+
+build_main_module:
+  <<: *build_app_module
+  dependencies:
+    - install_dependencies_for_main
+  needs:
+    - install_dependencies_for_main
+  variables:
+    APP_MODULE: main
+build_admin_module:
+  <<: *build_app_module
+  dependencies:
+    - install_dependencies_for_admin
+  needs:
+    - install_dependencies_for_admin
+  variables:
+    APP_MODULE: admin
+build_scm_module:
+  <<: *build_app_module
+  dependencies:
+    - install_dependencies_for_scm
+  needs:
+    - install_dependencies_for_scm
+  variables:
+    APP_MODULE: scm
+build_wms_module:
+  <<: *build_app_module
+  dependencies:
+    - install_dependencies_for_wms
+  needs:
+    - install_dependencies_for_wms
+  variables:
+    APP_MODULE: wms
+
+############## 构建镜像
+.build_app_image: &build_app_image
+  stage: build_img
+  tags:
+    - docker-in-docker
+  image: $DOCKER_REGISTRY/recircle-industry-platform/docker:latest
+  before_script:
+    - echo "$DOCKER_REGISTRY_PASS" | docker login $DOCKER_REGISTRY --username $DOCKER_REGISTRY_USER --password-stdin
+  script:
+    - echo ">>>>>>>>>>>>>>>>>>>>开始构建应用${APP_MODULE}镜像<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - docker build -f app-${APP_MODULE}.Dockerfile -t $DOCKER_REGISTRY/recircle-industry-platform/$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front:dev .
+    - echo ">>>>>>>>>>>>>>>>>>>>推送应用${APP_MODULE}镜像到Harbor仓库<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - docker push $DOCKER_REGISTRY/recircle-industry-platform/$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front:dev
+  only:
+    - develop
+
+build_main_image:
+  <<: *build_app_image
+  dependencies:
+    - build_main_module
+  needs:
+    - build_main_module
+  variables:
+    APP_MODULE: main
+build_admin_image:
+  <<: *build_app_image
+  dependencies:
+    - build_admin_module
+  needs:
+    - build_admin_module
+  variables:
+    APP_MODULE: admin
+build_wms_image:
+  <<: *build_app_image
+  dependencies:
+    - build_wms_module
+  needs:
+    - build_wms_module
+  variables:
+    APP_MODULE: wms
+build_scm_image:
+  <<: *build_app_image
+  dependencies:
+    - build_scm_module
+  needs:
+    - build_scm_module
+  variables:
+    APP_MODULE: scm
+
+########################### 部署上K8S
+.deploy_app_to_k8s: &deploy_app_to_k8s
+  stage: deploy
+  tags:
+    - kube-in-docker-deployer
+  image:
+    name: $DOCKER_REGISTRY/recircle-industry-platform/kubectl:1.28
+    entrypoint: ['']
+  script:
+    - kubectl patch deployment $(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front-v1 --context=dev-admin@cluster.dev -n recircle-industry-platform-dev -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
+    - echo ">>>>>>>>>>>>>>>>>>>>${APP_MODULE}发布成功<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+  only:
+    - develop
+
+deploy_main_k8s:
+  <<: *deploy_app_to_k8s
+  dependencies:
+    - build_main_image
+  needs:
+    - build_main_image
+  variables:
+    APP_MODULE: main
+deploy_admin_k8s:
+  <<: *deploy_app_to_k8s
+  dependencies:
+    - build_admin_image
+  needs:
+    - build_admin_image
+  variables:
+    APP_MODULE: admin
+deploy_scm_k8s:
+  <<: *deploy_app_to_k8s
+  dependencies:
+    - build_scm_image
+  needs:
+    - build_scm_image
+  variables:
+    APP_MODULE: scm
+deploy_wms_k8s:
+  <<: *deploy_app_to_k8s
+  dependencies:
+    - build_wms_image
+  needs:
+    - build_wms_image
+  variables:
+    APP_MODULE: wms

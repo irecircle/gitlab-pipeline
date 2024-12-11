@@ -1,0 +1,189 @@
+###################### 为应用模块安装依赖
+.install-dependency-for-module-test: &install-dependency-for-module-test
+  stage: install
+  tags:
+    - pnpm-in-docker
+  script:
+    - echo ">>>>>>>>>>>>>>>>>>>>开始安装${APP_MODULE}应用模块依赖<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - pnpm install --dir=apps/${APP_MODULE}
+  only:
+    - test
+  cache:
+    key: ${CI_PROJECT_NAME}-test-${APP_MODULE}
+    paths:
+      - apps/${APP_MODULE}/node_modules/
+      - node_modules/
+      - apps/micro-template/node_modules/
+      - packages/ui/node_modules/
+      - packages/utils/node_modules/
+
+install_dependencies_for_admin_in_test:
+  <<: *install-dependency-for-module-test
+  variables:
+    APP_MODULE: admin
+install_dependencies_for_main_in_test:
+  <<: *install-dependency-for-module-test
+  variables:
+    APP_MODULE: main
+install_dependencies_for_scm_in_test:
+  <<: *install-dependency-for-module-test
+  variables:
+    APP_MODULE: scm
+install_dependencies_for_wms_in_test:
+  <<: *install-dependency-for-module-test
+  variables:
+    APP_MODULE: wms
+
+################# 构建应用模块
+.build_app_module-test: &build_app_module-test
+  stage: build
+  tags:
+    - pnpm-in-docker
+  when: manual
+  script:
+    - echo ">>>>>>>>>>>>>>>>>>>>开始构建应用${APP_MODULE}<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - pnpm run build:$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-test # 执行构建命令
+  artifacts:
+    paths:
+      - apps/${APP_MODULE}/dist/ # 保存构建后的输出
+    expire_in: 1 week # 构建产物保存一周
+  only:
+    - test
+  cache:
+    - key: ${CI_PROJECT_NAME}-test-${APP_MODULE}
+      paths:
+        - apps/${APP_MODULE}/node_modules/
+        - node_modules/
+        - apps/micro-template/node_modules/
+        - packages/ui/node_modules/
+        - packages/utils/node_modules/
+
+build_main_module_in_test:
+  <<: *build_app_module-test
+  dependencies:
+    - install_dependencies_for_main_in_test
+  needs:
+    - install_dependencies_for_main_in_test
+  variables:
+    APP_MODULE: main
+build_admin_module_in_test:
+  <<: *build_app_module-test
+  dependencies:
+    - install_dependencies_for_admin_in_test
+  needs:
+    - install_dependencies_for_admin_in_test
+  variables:
+    APP_MODULE: admin
+build_scm_module_in_test:
+  <<: *build_app_module-test
+  dependencies:
+    - install_dependencies_for_scm_in_test
+  needs:
+    - install_dependencies_for_scm_in_test
+  variables:
+    APP_MODULE: scm
+build_wms_module_in_test:
+  <<: *build_app_module-test
+  dependencies:
+    - install_dependencies_for_wms_in_test
+  needs:
+    - install_dependencies_for_wms_in_test
+  variables:
+    APP_MODULE: wms
+
+############## 构建镜像
+.build_app_image-test: &build_app_image-test
+  stage: build_img
+  tags:
+    - docker-in-docker
+  image: $DOCKER_REGISTRY/recircle-industry-platform/docker:latest
+  before_script:
+    - echo "$DOCKER_REGISTRY_PASS" | docker login $DOCKER_REGISTRY --username $DOCKER_REGISTRY_USER --password-stdin
+  script:
+    - echo ">>>>>>>>>>>>>>>>>>>>开始构建应用${APP_MODULE}镜像<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - docker build -f app-${APP_MODULE}.Dockerfile -t $DOCKER_REGISTRY/recircle-industry-platform/$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front:test .
+    - echo ">>>>>>>>>>>>>>>>>>>>推送应用${APP_MODULE}镜像到Harbor仓库<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - docker push $DOCKER_REGISTRY/recircle-industry-platform/$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front:test
+  only:
+    - test
+
+build_main_image_in_test:
+  <<: *build_app_image-test
+  dependencies:
+    - build_main_module_in_test
+  needs:
+    - build_main_module_in_test
+  variables:
+    APP_MODULE: main
+build_admin_image_in_test:
+  <<: *build_app_image-test
+  dependencies:
+    - build_admin_module_in_test
+  needs:
+    - build_admin_module_in_test
+  variables:
+    APP_MODULE: admin
+build_wms_image_in_test:
+  <<: *build_app_image-test
+  dependencies:
+    - build_wms_module_in_test
+  needs:
+    - build_wms_module_in_test
+  variables:
+    APP_MODULE: wms
+build_scm_image_in_test:
+  <<: *build_app_image-test
+  dependencies:
+    - build_scm_module_in_test
+  needs:
+    - build_scm_module_in_test
+  variables:
+    APP_MODULE: scm
+
+########################### 部署上K8S
+.deploy_app_to_k8s-test: &deploy_app_to_k8s-test
+  stage: deploy
+  tags:
+    - kube-in-docker-deployer
+  image:
+    name: $DOCKER_REGISTRY/recircle-industry-platform/kubectl:1.28
+    entrypoint: ['']
+  script:
+    - echo ">>>>>>>>>>>>>>>>>>>>${APP_MODULE}开始发布<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - kubectl patch deployment $(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front-v1 --context=test-admin@cluster.test -n recircle-industry-platform-test -p "{\"spec\":{\"template\":{\"metadata\":{\"annotations\":{\"kubectl.kubernetes.io/restartedAt\":\"$(date +%Y-%m-%dT%H:%M:%S)\"}}}}}"
+    - echo ">>>>>>>>>>>>>>>>>>>>${APP_MODULE}发布成功<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+  only:
+    - test
+
+deploy_main_k8s_in_test:
+  <<: *deploy_app_to_k8s-test
+  dependencies:
+    - build_main_image_in_test
+  needs:
+    - build_main_image_in_test
+  variables:
+    APP_MODULE: main
+deploy_admin_k8s_in_test:
+  <<: *deploy_app_to_k8s-test
+  dependencies:
+    - build_admin_image_in_test
+  needs:
+    - build_admin_image_in_test
+  variables:
+    APP_MODULE: admin
+deploy_scm_k8s_in_test:
+  <<: *deploy_app_to_k8s-test
+  dependencies:
+    - build_scm_image_in_test
+  needs:
+    - build_scm_image_in_test
+  variables:
+    APP_MODULE: scm
+deploy_wms_k8s_in_test:
+  <<: *deploy_app_to_k8s-test
+  dependencies:
+    - build_wms_image_in_test
+  needs:
+    - build_wms_image_in_test
+  variables:
+    APP_MODULE: wms

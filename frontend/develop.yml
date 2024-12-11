@@ -5,7 +5,7 @@
     - pnpm-in-docker
   script:
     - echo ">>>>>>>>>>>>>>>>>>>>开始安装${APP_MODULE}应用模块依赖<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
-    - pnpm install --dir=apps/${APP_MODULE}
+    - pnpm install --dir=apps/${APP_MODULE} --no-frozen-lockfile
   only:
     - develop
   cache:

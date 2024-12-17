@@ -18,19 +18,19 @@
       - packages/utils/node_modules/
 
 install_dependencies_for_admin_in_release:
-  <<: *install-dependency-for-module-release
+  <<: *install_dependencies_for_release
   variables:
     APP_MODULE: admin
 install_dependencies_for_main_in_release:
-  <<: *install-dependency-for-module-release
+  <<: *install_dependencies_for_release
   variables:
     APP_MODULE: main
 install_dependencies_for_scm_in_release:
-  <<: *install-dependency-for-module-release
+  <<: *install_dependencies_for_release
   variables:
     APP_MODULE: scm
 install_dependencies_for_wms_in_release:
-  <<: *install-dependency-for-module-release
+  <<: *install_dependencies_for_release
   variables:
     APP_MODULE: wms
 

@@ -1,159 +1,198 @@
-# 定义安装依赖的作业
-install_dependencies_for_release:
+###################### 为应用模块安装依赖
+.install_dependencies_for_release: &install_dependencies_for_release
   stage: install
   tags:
-    - frontend-installer
+    - pnpm-in-docker
   script:
-    - pnpm install 
+    - echo ">>>>>>>>>>>>>>>>>>>>开始安装${APP_MODULE}应用模块依赖<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - pnpm install --dir=apps/${APP_MODULE} --no-frozen-lockfile
   only:
     - release
   cache:
-    key: ${CI_PROJECT_NAME}-release
+    key: ${CI_PROJECT_NAME}-release-${APP_MODULE}
     paths:
+      - apps/${APP_MODULE}/node_modules/
       - node_modules/
-      - apps/admin/node_modules/
-      - apps/main/node_modules/
       - apps/micro-template/node_modules/
       - packages/ui/node_modules/
       - packages/utils/node_modules/
+
+install_dependencies_for_admin_in_release:
+  <<: *install-dependency-for-module-release
+  variables:
+    APP_MODULE: admin
+install_dependencies_for_main_in_release:
+  <<: *install-dependency-for-module-release
+  variables:
+    APP_MODULE: main
+install_dependencies_for_scm_in_release:
+  <<: *install-dependency-for-module-release
+  variables:
+    APP_MODULE: scm
+install_dependencies_for_wms_in_release:
+  <<: *install-dependency-for-module-release
+  variables:
+    APP_MODULE: wms
 
 # 构建项目
-build_admin_project_for_release:
+.build_app_module-release: &build_app_module-release
   stage: build
   tags:
-    - frontend-admin-builder
-  dependencies:
-    - install_dependencies_for_release
-  needs:
-    - install_dependencies_for_release
+    - pnpm-in-docker
+  when: manual
   script:
-    - pnpm run build:admin-stage # 执行构建命令
+    - echo ">>>>>>>>>>>>>>>>>>>>开始构建应用${APP_MODULE}<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - pnpm run build:$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-stage # 执行构建命令
   artifacts:
     paths:
-      - apps/admin/dist/ # 保存构建后的输出
+      - apps/${APP_MODULE}/dist/ # 保存构建后的输出
     expire_in: 1 week # 构建产物保存一周
   only:
     - release
   cache:
-    key: ${CI_PROJECT_NAME}-release
-    paths:
-      - node_modules/
-      - apps/admin/node_modules/
-      - apps/main/node_modules/
-      - apps/micro-template/node_modules/
-      - packages/ui/node_modules/
-      - packages/utils/node_modules/
+    - key: ${CI_PROJECT_NAME}-release-${APP_MODULE}
+      paths:
+        - apps/${APP_MODULE}/node_modules/
+        - node_modules/
+        - apps/micro-template/node_modules/
+        - packages/ui/node_modules/
+        - packages/utils/node_modules/
 
-build_main_project_for_release:
-  stage: build
-  tags:
-    - frontend-installer
+build_main_module_in_release:
+  <<: *build_app_module-release
   dependencies:
-    - install_dependencies_for_release
+    - install_dependencies_for_main_in_release
   needs:
-    - install_dependencies_for_release
-  script:
-    - pnpm run build:main-stage # 执行构建命令
-  artifacts:
-    paths:
-      - apps/main/dist/ # 保存构建后的输出
-    expire_in: 1 week # 构建产物保存一周
-  only:
-    - release
-  cache:
-    key: ${CI_PROJECT_NAME}-release
-    paths:
-      - node_modules/
-      - apps/admin/node_modules/
-      - apps/main/node_modules/
-      - apps/micro-template/node_modules/
-      - packages/ui/node_modules/
-      - packages/utils/node_modules/
+    - install_dependencies_for_main_in_release
+  variables:
+    APP_MODULE: main
+build_admin_module_in_release:
+  <<: *build_app_module-release
+  dependencies:
+    - install_dependencies_for_admin_in_release
+  needs:
+    - install_dependencies_for_admin_in_release
+  variables:
+    APP_MODULE: admin
+build_scm_module_in_release:
+  <<: *build_app_module-release
+  dependencies:
+    - install_dependencies_for_scm_in_release
+  needs:
+    - install_dependencies_for_scm_in_release
+  variables:
+    APP_MODULE: scm
+build_wms_module_in_release:
+  <<: *build_app_module-release
+  dependencies:
+    - install_dependencies_for_wms_in_release
+  needs:
+    - install_dependencies_for_wms_in_release
+  variables:
+    APP_MODULE: wms
 
-# 构建镜像
-build_admin_image_for_release:
+############## 构建镜像
+.build_app_image-release: &build_app_image-release
   stage: build_img
-  image: $DOCKER_REGISTRY/recircle-industry-platform/docker
   tags:
-    - frontend-admin-builder
-  dependencies:
-    - build_admin_project_for_release
-  needs:
-    - build_admin_project_for_release
+    - docker-in-docker
+  image: $DOCKER_REGISTRY/recircle-industry-platform/docker:latest
   before_script:
     - echo "$DOCKER_REGISTRY_PASS" | docker login $DOCKER_REGISTRY --username $DOCKER_REGISTRY_USER --password-stdin
-  variables:
-    TZ: "Asia/Shanghai"
   script:
     - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
-    - echo "docker image tag is:"
+    - echo "镜像tag为:"
     - echo $CURRENT_TIME
-    - docker build -f Dockerfile.admin -t $DOCKER_REGISTRY/recircle-industry-platform/admin-front:$CURRENT_TIME .
-    - docker push $DOCKER_REGISTRY/recircle-industry-platform/admin-front:$CURRENT_TIME
+    - echo ">>>>>>>>>>>>>>>>>>>>开始构建应用${APP_MODULE}镜像<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - docker build -f app-${APP_MODULE}.Dockerfile -t $DOCKER_REGISTRY/recircle-industry-platform/$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front:$CURRENT_TIME .
+    - echo ">>>>>>>>>>>>>>>>>>>>推送应用${APP_MODULE}镜像到Harbor仓库<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - docker push $DOCKER_REGISTRY/recircle-industry-platform/$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')-front:$CURRENT_TIME
   only:
     - release
 
-build_main_image_for_release:
-  stage: build_img
-  image: $DOCKER_REGISTRY/recircle-industry-platform/docker
-  tags:
-    - frontend-installer
+build_main_image_in_release:
+  <<: *build_app_image-release
   dependencies:
-    - build_main_project_for_release
+    - build_main_module_in_release
   needs:
-    - build_main_project_for_release
-  before_script:
-    - echo "$DOCKER_REGISTRY_PASS" | docker login $DOCKER_REGISTRY --username $DOCKER_REGISTRY_USER --password-stdin
+    - build_main_module_in_release
   variables:
-    TZ: "Asia/Shanghai"
-  script:
-    - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
-    - echo "docker image tag is:"
-    - echo $CURRENT_TIME
-    - docker build -f Dockerfile.main -t $DOCKER_REGISTRY/recircle-industry-platform/main-front:$CURRENT_TIME .
-    - docker push $DOCKER_REGISTRY/recircle-industry-platform/main-front:$CURRENT_TIME
-  only:
-    - release
+    APP_MODULE: main
+build_admin_image_in_release:
+  <<: *build_app_image-release
+  dependencies:
+    - build_admin_module_in_release
+  needs:
+    - build_admin_module_in_release
+  variables:
+    APP_MODULE: admin
+build_wms_image_in_release:
+  <<: *build_app_image-release
+  dependencies:
+    - build_wms_module_in_release
+  needs:
+    - build_wms_module_in_release
+  variables:
+    APP_MODULE: wms
+build_scm_image_in_release:
+  <<: *build_app_image-release
+  dependencies:
+    - build_scm_module_in_release
+  needs:
+    - build_scm_module_in_release
+  variables:
+    APP_MODULE: scm
 
-# 部署上K8S
-deploy_admin_k8s_for_release:
+########################### 部署上K8S
+.deploy_app_to_k8s-release: &deploy_app_to_k8s-release
   stage: deploy
-  image: 
-    name: $DOCKER_REGISTRY/recircle-industry-platform/kubectl:1.28
-    entrypoint: [""]
   tags:
-    - frontend-admin-builder
-  dependencies:
-    - build_admin_image_for_release
-  needs:
-    - build_admin_image_for_release
-  variables:
-    TZ: "Asia/Shanghai"
+    - kube-in-docker-deployer
+  image:
+    name: $DOCKER_REGISTRY/recircle-industry-platform/kubectl:1.28
+    entrypoint: ['']
   script:
+    - export APP_NAME=$(echo "$APP_MODULE" | tr '[:upper:]' '[:lower:]')
+    - echo "部署应用名为:"
+    - echo $APP_NAME
     - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
-    - echo "deploy docker image tag is:"
+    - echo "部署的镜像tag为:"
     - echo $CURRENT_TIME
-    - kubectl patch deployment admin-front-v1 --context=pre-admin@cluster.pre -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"admin-front\",\"image\":\"harbor.irecircle.com/recircle-industry-platform/admin-front:${CURRENT_TIME}\"}]}}}}"
+    - echo ">>>>>>>>>>>>>>>>>>>>${APP_MODULE}开始发布<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+    - kubectl patch deployment $APP_NAME-front-v1 --context=pre-admin@cluster.pre -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"$APP_NAME-front\",\"image\":\"harbor.irecircle.com/recircle-industry-platform/$APP_NAME-front:${CURRENT_TIME}\"}]}}}}"
+    - echo ">>>>>>>>>>>>>>>>>>>>${APP_MODULE}发布成功<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
   only:
     - release
 
-deploy_main_k8s_for_release:
-  stage: deploy
-  image: 
-    name: $DOCKER_REGISTRY/recircle-industry-platform/kubectl:1.28
-    entrypoint: [""]
-  tags:
-    - frontend-installer
+deploy_main_k8s_in_release:
+  <<: *deploy_app_to_k8s-release
   dependencies:
-    - build_main_image_for_release
+    - build_main_image_in_release
   needs:
-    - build_main_image_for_release
+    - build_main_image_in_release
   variables:
-    TZ: "Asia/Shanghai"
-  script:
-    - export CURRENT_TIME=$(TZ="Asia/Shanghai" date '+%Y-%m-%dT%H')
-    - echo "deploy docker image tag is:"
-    - echo $CURRENT_TIME
-    - kubectl patch deployment main-front-v1 --context=pre-admin@cluster.pre -n recircle-industry-platform-preview -p "{\"spec\":{\"template\":{\"spec\":{\"containers\":[{\"name\":\"main-front\",\"image\":\"harbor.irecircle.com/recircle-industry-platform/main-front:${CURRENT_TIME}\"}]}}}}"
-  only:
-    - release
+    APP_MODULE: main
+deploy_admin_k8s_in_release:
+  <<: *deploy_app_to_k8s-release
+  dependencies:
+    - build_admin_image_in_release
+  needs:
+    - build_admin_image_in_release
+  variables:
+    APP_MODULE: admin
+deploy_scm_k8s_in_release:
+  <<: *deploy_app_to_k8s-release
+  dependencies:
+    - build_scm_image_in_release
+  needs:
+    - build_scm_image_in_release
+  variables:
+    APP_MODULE: scm
+deploy_wms_k8s_in_release:
+  <<: *deploy_app_to_k8s-release
+  dependencies:
+    - build_wms_image_in_release
+  needs:
+    - build_wms_image_in_release
+  variables:
+    APP_MODULE: wms

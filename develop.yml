@@ -68,3 +68,7 @@ deploy_api_for_dev:
     - maven-builder
   only:
     - develop
+  rules:
+    - if: '$ENABLE_DEPLOY_API == "true"'
+      when: always
+    - when: never

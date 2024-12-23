@@ -13,7 +13,6 @@ build_maven_package_for_dev:
     - maven-builder
   only:
     - develop
-  resource_group: develop_pipeline
 
 ## 构建Docker镜像
 build_image_for_dev:
@@ -33,7 +32,6 @@ build_image_for_dev:
     - host-docker-builder
   only:
     - develop
-  resource_group: develop_pipeline
 
 ## 部署到K8S
 deploy_app_for_dev:
@@ -50,7 +48,6 @@ deploy_app_for_dev:
     - kube-deployer
   only:
     - develop
-  resource_group: develop_pipeline
 
 ## 将应用的API发布到Maven私服
 deploy_api_for_dev:
@@ -71,4 +68,3 @@ deploy_api_for_dev:
     - maven-builder
   only:
     - develop
-  resource_group: develop_pipeline
